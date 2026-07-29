@@ -22,7 +22,7 @@ body {
   color: var(--color-white);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
-  height: 100vh;
+  height: 100dvh; /* Use dynamic viewport height for mobile browsers */
   width: 100vw;
 }
 
@@ -56,6 +56,16 @@ body {
     radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
     radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
   overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px); /* Avoid phone notches */
+}
+
+@media (max-width: 480px) {
+  .screen-content {
+    padding: 16px; /* Tighter padding for actual mobile screens */
+  }
+  .app-container {
+    max-width: 100%;
+  }
 }
 
 .main-content {
