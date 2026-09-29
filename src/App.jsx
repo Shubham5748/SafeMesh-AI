@@ -67,6 +67,12 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentTab, setCurrentTab] = useState('home');
   const [showEmergency, setShowEmergency] = useState(false);
+  const [emergencyReason, setEmergencyReason] = useState(null);
+
+  const handleSosTrigger = (reason = 'Manual SOS Trigger') => {
+    setEmergencyReason(reason);
+    setShowEmergency(true);
+  };
 
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
@@ -87,11 +93,11 @@ export default function App() {
       <main className="main-content">
         {currentTab === 'home' && (
           <Home 
-            onSosTrigger={() => setShowEmergency(true)} 
+            onSosTrigger={() => handleSosTrigger('Manual SOS Trigger from Home')} 
             onOpenMap={() => setCurrentTab('map')}
           />
         )}
-        {currentTab === 'safety' && <Safety />}
+        {currentTab === 'safety' && <Safety onSosTrigger={handleSosTrigger} />}
         {currentTab === 'mesh' && <Mesh />}
         {currentTab === 'history' && <History />}
         {currentTab === 'profile' && <Profile onOpenContacts={() => setCurrentTab('contacts')} />}
@@ -116,10 +122,8 @@ export default function App() {
 
       {showEmergency && (
         <EmergencyOverlay 
+          reason={emergencyReason}
           onCancel={() => setShowEmergency(false)} 
-          onBroadcast={() => {
-            console.log('SOS Broadcasted');
-          }}
         />
       )}
     </div>
