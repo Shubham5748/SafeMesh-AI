@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, ActivitySquare, PersonStanding, ShieldCheck, ShieldAlert, Sparkles } from 'lucide-react';
+import { Mic, ActivitySquare, PersonStanding, ShieldCheck, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export default function Safety({ onSosTrigger }) {
-  const [voiceStatus, setVoiceStatus] = useState('Listening...');
+  const [voiceStatus, setVoiceStatus] = useState('Tap Enable Voice to activate');
   const [voiceScore, setVoiceScore] = useState(0);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
   
   const [fallStatus, setFallStatus] = useState('Active - Monitoring');
   const [fallScore, setFallScore] = useState(0);
@@ -32,7 +33,7 @@ export default function Safety({ onSosTrigger }) {
       cooldownRef.current = false;
       setFallStatus('Active - Monitoring');
       setFallScore(0);
-      setVoiceStatus('Listening...');
+      setVoiceStatus('Listening (help, bachao, emergency)...');
       setVoiceScore(0);
       fallStateRef.current = { phase: 'idle', timeout: null };
     }, 15000);
@@ -111,11 +112,15 @@ export default function Safety({ onSosTrigger }) {
   const setupVoiceDetection = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setVoiceStatus('Speech API not supported in this browser');
+      setVoiceStatus('Speech API not supported in browser');
       return;
     }
 
     try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(e) {}
+      }
+
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
@@ -125,6 +130,7 @@ export default function Safety({ onSosTrigger }) {
 
       recognition.onstart = () => {
         setVoiceStatus('Listening (help, bachao, emergency)...');
+        setIsVoiceActive(true);
       };
 
       recognition.onresult = (event) => {
@@ -146,7 +152,8 @@ export default function Safety({ onSosTrigger }) {
       recognition.onerror = (event) => {
         console.warn('Speech recognition status:', event.error);
         if (event.error === 'not-allowed') {
-          setVoiceStatus('Mic Permission Blocked');
+          setVoiceStatus('Mic Permission Blocked. Tap to grant permission.');
+          setIsVoiceActive(false);
         } else if (event.error === 'no-speech') {
           // Normal silence, keep listening
         } else {
@@ -155,7 +162,7 @@ export default function Safety({ onSosTrigger }) {
       };
 
       recognition.onend = () => {
-        if (!cooldownRef.current) {
+        if (!cooldownRef.current && isVoiceActive) {
           try {
             recognition.start();
           } catch (e) {}
@@ -169,20 +176,33 @@ export default function Safety({ onSosTrigger }) {
     }
   };
 
-  const requestIosMotion = async () => {
+  const activateSensors = async () => {
+    // 1. iOS Motion Permission
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       try {
         const response = await DeviceMotionEvent.requestPermission();
         if (response === 'granted') {
           setNeedsIosPermission(false);
           window.addEventListener('devicemotion', handleMotion, true);
-        } else {
-          alert('Motion sensor permission is required for fall detection.');
         }
       } catch (e) {
-        console.error('iOS Motion Permission error:', e);
+        console.error('iOS Motion error:', e);
       }
     }
+
+    // 2. Request mic permission via getUserMedia on user gesture
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+      }
+    } catch (e) {
+      console.warn('getUserMedia prompt error', e);
+    }
+
+    // 3. Start Speech Recognition
+    setupVoiceDetection();
+    setIsVoiceActive(true);
   };
 
   useEffect(() => {
@@ -192,8 +212,6 @@ export default function Safety({ onSosTrigger }) {
     } else {
       window.addEventListener('devicemotion', handleMotion, true);
     }
-
-    setupVoiceDetection();
 
     return () => {
       window.removeEventListener('devicemotion', handleMotion, true);
@@ -224,23 +242,51 @@ export default function Safety({ onSosTrigger }) {
 
   return (
     <div className="safety-screen screen-content">
-      <header className="header mb-6">
+      <header className="header mb-4">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h2 className="title">AI Detection Guard</h2>
             <p className="subtitle">Real-time anomaly & distress monitoring</p>
           </div>
-          <span style={{ fontSize: '11px', background: 'rgba(34,197,94,0.2)', color: '#22c55e', padding: '4px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
-            ● LIVE SENSORS
+          <span style={{ 
+            fontSize: '11px', 
+            background: isVoiceActive ? 'rgba(34,197,94,0.2)' : 'rgba(234,179,8,0.2)', 
+            color: isVoiceActive ? '#22c55e' : '#eab308', 
+            padding: '4px 8px', 
+            borderRadius: '12px', 
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            {isVoiceActive ? <CheckCircle2 size={12} /> : null}
+            {isVoiceActive ? 'ALL SENSORS LIVE' : 'MOTION ACTIVE'}
           </span>
         </div>
       </header>
 
+      {/* Prominent one-tap activation button for microphone */}
+      {!isVoiceActive && (
+        <div className="glass-panel p-4 mb-4 text-center" style={{ border: '1px solid #3b82f6', background: 'rgba(59, 130, 246, 0.15)' }}>
+          <p style={{ fontWeight: 'bold', marginBottom: '4px', fontSize: '15px' }}>🎙️ Tap to Grant Microphone Access</p>
+          <p style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '12px' }}>
+            Browsers require a user tap to enable continuous voice detection.
+          </p>
+          <button 
+            className="btn btn-primary" 
+            onClick={activateSensors}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', fontWeight: 'bold' }}
+          >
+            <Mic size={18} /> Enable Voice Distress Detection
+          </button>
+        </div>
+      )}
+
       {needsIosPermission && (
-        <div className="glass-panel text-center p-4 mb-4" style={{ border: '1px solid #3b82f6' }}>
-          <p className="text-sm mb-3">iPhone requires permission to access the motion accelerometer:</p>
-          <button className="btn btn-primary" onClick={requestIosMotion}>
-            Enable iPhone Motion Sensors
+        <div className="glass-panel text-center p-3 mb-4" style={{ border: '1px solid #3b82f6' }}>
+          <p className="text-sm mb-2">iPhone requires permission for accelerometer motion:</p>
+          <button className="btn btn-primary" onClick={activateSensors}>
+            Enable Motion Sensors
           </button>
         </div>
       )}
@@ -279,7 +325,7 @@ export default function Safety({ onSosTrigger }) {
           title="Voice Distress" 
           score={`${voiceScore}%`} 
           status={voiceStatus} 
-          color={voiceScore > 50 ? "var(--color-red)" : "var(--color-blue)"}
+          color={voiceScore > 50 ? "var(--color-red)" : (isVoiceActive ? "var(--color-blue)" : "var(--color-yellow)")}
         />
       </div>
 
