@@ -85,9 +85,15 @@ app.post('/api/emergency', async (req, res) => {
       smsSent,
       callsSent,
       location: !!location,
+      locationUrl: locString,
       results
     });
   }
+
+  console.log(`\n🚨 REAL SOS DISPATCHED:`);
+  console.log(`Reason: ${emergencyReason}`);
+  console.log(`Location: ${locString}`);
+  console.log(`Target Phone(s): ${contacts.map(c => c.phone).join(', ')}\n`);
 
   // Real Twilio Dispatch
   for (const contact of contacts) {
@@ -132,6 +138,7 @@ app.post('/api/emergency', async (req, res) => {
     smsSent,
     callsSent,
     location: !!location,
+    locationUrl: locString,
     results
   });
 });

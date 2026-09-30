@@ -5,6 +5,7 @@ export default function EmergencyOverlay({ reason, onCancel }) {
   const [countdown, setCountdown] = useState(10);
   const [status, setStatus] = useState('counting'); // 'counting' | 'dispatching' | 'delivered' | 'error'
   const [dispatchResult, setDispatchResult] = useState(null);
+  const [locInfo, setLocInfo] = useState(null);
   const hasDispatched = useRef(false);
 
   useEffect(() => {
@@ -26,16 +27,27 @@ export default function EmergencyOverlay({ reason, onCancel }) {
     setStatus('dispatching');
 
     let location = null;
+    const getLocation = (highAccuracy) => new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        err => reject(err),
+        { enableHighAccuracy: highAccuracy, timeout: 8000, maximumAge: 30000 }
+      );
+    });
+
     try {
-      location = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-          err => reject(err),
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-      });
-    } catch (e) {
-      console.warn('Location unavailable', e);
+      location = await getLocation(true);
+    } catch (e1) {
+      try {
+        location = await getLocation(false);
+      } catch (e2) {
+        console.warn('Location unavailable', e2);
+      }
+    }
+
+    if (location) {
+      setLocInfo(location);
     }
 
     const contactsStr = localStorage.getItem('sos_contacts');
@@ -139,7 +151,21 @@ export default function EmergencyOverlay({ reason, onCancel }) {
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                 <MapPin size={20} />
-                <span>Location: {dispatchResult.location ? 'Attached' : 'Unavailable'}</span>
+                <div>
+                  <span>Location: </span>
+                  {(locInfo || dispatchResult.locationUrl) ? (
+                    <a 
+                      href={locInfo ? `https://www.google.com/maps?q=${locInfo.latitude},${locInfo.longitude}` : dispatchResult.locationUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      style={{color: '#60a5fa', textDecoration: 'underline', fontWeight: 'bold'}}
+                    >
+                      View on Google Maps ↗
+                    </a>
+                  ) : (
+                    <span>Unavailable</span>
+                  )}
+                </div>
               </div>
             </div>
 
