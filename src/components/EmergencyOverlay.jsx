@@ -68,16 +68,31 @@ export default function EmergencyOverlay({ reason, onCancel }) {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/emergency', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contacts,
-          reason,
-          userName: 'SafeMesh User', // We don't have global user state easily accessible here
-          location
-        })
-      });
+      let response;
+      try {
+        response = await fetch('/api/emergency', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contacts,
+            reason,
+            userName: 'SafeMesh User',
+            location
+          })
+        });
+      } catch (proxyErr) {
+        const fallbackUrl = `http://${window.location.hostname || 'localhost'}:3001/api/emergency`;
+        response = await fetch(fallbackUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contacts,
+            reason,
+            userName: 'SafeMesh User',
+            location
+          })
+        });
+      }
 
       const data = await response.json();
       if (response.ok) {

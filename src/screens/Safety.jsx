@@ -10,6 +10,7 @@ export default function Safety({ onSosTrigger }) {
   const [fallScore, setFallScore] = useState(0);
 
   const [motionStatus, setMotionStatus] = useState('Idle');
+  const [liveMagnitude, setLiveMagnitude] = useState('9.8');
   
   const cooldownRef = useRef(false);
   const fallStateRef = useRef({ phase: 'idle', timeout: null }); // phases: idle -> impact -> stillness -> fall!
@@ -76,6 +77,7 @@ export default function Safety({ onSosTrigger }) {
     }
 
     const magnitude = Math.sqrt(ax * ax + ay * ay + az * az);
+    setLiveMagnitude(magnitude.toFixed(1));
 
     // Calculate dynamic fall score based on motion
     // Normal gravity is ~9.8.
@@ -263,10 +265,24 @@ export default function Safety({ onSosTrigger }) {
             <ModuleCard 
               icon={ActivitySquare} 
               title="Motion Analysis" 
-              score="-" 
+              score={`${liveMagnitude} m/s²`} 
               status={motionStatus} 
               color="var(--color-blue)"
             />
+          </div>
+
+          <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+            <button 
+              className="btn btn-outline" 
+              style={{ flex: 1, fontSize: '13px', padding: '10px' }}
+              onClick={() => {
+                setFallStatus('Possible Fall Detected!');
+                setFallScore(100);
+                triggerSos('Possible Fall Detected (Simulated)');
+              }}
+            >
+              🧪 Test Fall Event
+            </button>
           </div>
         </>
       )}
