@@ -112,7 +112,7 @@ app.post('/api/emergency', async (req, res) => {
 
     try {
       const callRes = await twilioClient.calls.create({
-        twiml: twimlCall,
+        url: process.env.TWILIO_TWIML_URL || 'http://demo.twilio.com/docs/voice.xml',
         from: process.env.TWILIO_PHONE_NUMBER,
         to: phone
       });
