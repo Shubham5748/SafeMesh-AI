@@ -48,7 +48,12 @@ app.post('/api/emergency', async (req, res) => {
 
   const smsMessage = `🚨 SAFEMESH AI SOS\nEmergency detected for ${name}\nType: ${emergencyReason}\nLocation: ${locString}\nPlease check on them immediately.`;
 
-  const twimlCall = `<Response><Say>Emergency alert from SafeMesh AI. An emergency was detected for ${name}. Reason: ${emergencyReason}. Please check on them immediately.</Say></Response>`;
+  let spokenLoc = 'Location unavailable.';
+  if (location && location.latitude && location.longitude) {
+    spokenLoc = `at latitude ${Number(location.latitude).toFixed(3)} and longitude ${Number(location.longitude).toFixed(3)}`;
+  }
+
+  const twimlCall = `<Response><Say voice="alice">Emergency alert from SafeMesh A I. An emergency was detected for ${name}. Reason: ${emergencyReason}. User is located ${spokenLoc}. Please check on them immediately.</Say></Response>`;
 
   const results = [];
   let smsSent = 0;
@@ -107,7 +112,7 @@ app.post('/api/emergency', async (req, res) => {
 
     try {
       const callRes = await twilioClient.calls.create({
-        url: 'http://demo.twilio.com/docs/voice.xml',
+        twiml: twimlCall,
         from: process.env.TWILIO_PHONE_NUMBER,
         to: phone
       });
